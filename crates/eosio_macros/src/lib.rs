@@ -14,17 +14,15 @@
 //!
 //! ```
 //! use eosio_macros::s;
-//! assert_eq!(s!(0, "TGFT"), 361_956_332_544);
-//! assert_eq!(s!(4, "EOS"), 1_397_703_940);
-//! assert_eq!(s!(0, "EOS"), 1_397_703_936);
-//! assert_eq!(s!(1, "EDNA"), 280_485_971_201);
+//! assert_eq!(s!(4, "EOS"), 1397703940);
 //! ```
 #![no_std]
 #![allow(clippy::missing_docs_in_private_items)]
 
 use proc_macro_hack::proc_macro_hack;
 
-/// Macro for converting EOSIO names into `u64` representations at compile time.
+/// Macro for converting EOSIO names into `u64` representations at compile
+/// time.
 ///
 /// # Examples
 ///
@@ -38,18 +36,18 @@ use proc_macro_hack::proc_macro_hack;
 #[proc_macro_hack]
 pub use eosio_macros_internal::n;
 
-/// Macro for converting EOSIO symbols into `u64` representations at compile time.
+/// Macro for converting EOSIO symbols into `u64` representations at
+/// compile time.
 ///
 /// # Examples
 ///
 /// ```
 /// use eosio_macros::s;
-/// assert_eq!(s!(0, "TGFT"), 361_956_332_544);
-/// assert_eq!(s!(4, "EOS"), 1_397_703_940);
-/// assert_eq!(s!(0, "EOS"), 1_397_703_936);
-/// assert_eq!(s!(1, "EDNA"), 280_485_971_201);
+/// assert_eq!(s!(4, "EOS"), 1397703940);
 /// ```
 #[proc_macro_hack]
 pub use eosio_macros_internal::s;
 
-pub use eosio_macros_internal::{action, table, NumBytes, Read, Table, Write};
+pub use eosio_macros_internal::{
+    abi, action, table, NumBytes, Read, Table, Write,
+};

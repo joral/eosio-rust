@@ -1,25 +1,28 @@
 mod extended_asset;
 pub use self::extended_asset::ExtendedAsset;
 
-use crate::bytes::{NumBytes, Read, Write};
-use crate::ops::{CheckedAdd, CheckedDiv, CheckedMul, CheckedRem, CheckedSub};
-use crate::symbol::{ParseSymbolError, Symbol};
-use alloc::string::{String, ToString};
-use core::convert::TryFrom;
-use core::fmt;
-use core::ops::{
-    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub,
-    SubAssign,
+use crate::{
+    bytes::{NumBytes, Read, Write},
+    ops::{CheckedAdd, CheckedDiv, CheckedMul, CheckedRem, CheckedSub},
+    symbol::{ParseSymbolError, Symbol},
 };
-use core::str::FromStr;
-use eosio_numstr::{symbol_from_chars, SYMBOL_LEN_MAX};
+use alloc::format;
+use core::{
+    convert::TryFrom,
+    fmt,
+    ops::{
+        Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub,
+        SubAssign,
+    },
+    str::FromStr,
+};
+use eosio_numstr::symbol_from_bytes;
 
 /// Stores information for owner of asset
 /// <https://github.com/EOSIO/eosio.cdt/blob/4985359a30da1f883418b7133593f835927b8046/libraries/eosiolib/core/eosio/asset.hpp#L18-L369>
 #[derive(
     Debug, PartialEq, PartialOrd, Clone, Copy, Default, Read, Write, NumBytes,
 )]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[eosio(crate_path = "crate::bytes")]
 pub struct Asset {
     /// The amount of the asset
@@ -29,8 +32,15 @@ pub struct Asset {
 }
 
 impl Asset {
-    /// Check if the asset is valid. A valid asset has its amount <= `max_amount`
-    /// and its symbol name valid
+    pub fn zero<T: Into<Symbol>>(symbol: T) -> Self {
+        Self {
+            amount: 0,
+            symbol: symbol.into(),
+        }
+    }
+
+    /// Check if the asset is valid. A valid asset has its amount <=
+    /// `max_amount` and its symbol name valid
     #[inline]
     #[must_use]
     pub fn is_valid(&self) -> bool {
@@ -64,11 +74,11 @@ impl fmt::Display for Asset {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ParseAssetError {
     /// TODO docs
-    BadChar(char),
+    BadChar(u8),
     /// TODO docs
     BadPrecision,
     /// TODO docs
-    SymbolIsEmpty,
+    BadFormat,
     /// TODO docs
     SymbolTooLong,
 }
@@ -81,12 +91,10 @@ impl fmt::Display for ParseAssetError {
                 write!(f, "asset contains invalid character '{}'", c)
             }
             Self::BadPrecision => write!(f, "bad precision"),
-            Self::SymbolIsEmpty => write!(f, "symbol is empty"),
-            Self::SymbolTooLong => write!(
-                f,
-                "symbol is too long, must be {} characters or less",
-                SYMBOL_LEN_MAX
-            ),
+            Self::BadFormat => write!(f, "bad format"),
+            Self::SymbolTooLong => {
+                write!(f, "symbol is too long, must be 7 characters or less")
+            }
         }
     }
 }
@@ -95,31 +103,32 @@ impl From<ParseSymbolError> for ParseAssetError {
     #[inline]
     fn from(value: ParseSymbolError) -> Self {
         match value {
-            ParseSymbolError::IsEmpty => Self::SymbolIsEmpty,
-            ParseSymbolError::TooLong => Self::SymbolTooLong,
+            ParseSymbolError::Precision(..) => Self::BadPrecision,
+            ParseSymbolError::BadFormat => Self::BadFormat,
+            ParseSymbolError::CodeTooLong => Self::SymbolTooLong,
             ParseSymbolError::BadChar(c) => Self::BadChar(c),
-            ParseSymbolError::BadPrecision => Self::BadPrecision,
         }
     }
 }
 
 impl FromStr for Asset {
     type Err = ParseAssetError;
+
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // TODO: refactor ugly code below
         let s = s.trim();
-        let mut chars = s.chars();
+        let mut bytes = s.bytes();
         let mut index = 0_usize;
         let mut precision: Option<u64> = None;
         // Find numbers
         loop {
-            let c = match chars.next() {
+            let c = match bytes.next() {
                 Some(c) => c,
-                None => return Err(ParseAssetError::SymbolIsEmpty),
+                None => return Err(ParseAssetError::BadFormat),
             };
             if index == 0 {
-                if '0' <= c && c <= '9' || c == '-' || c == '+' {
+                if b'0' <= c && c <= b'9' || c == b'-' || c == b'+' {
                     index += 1;
                     continue;
                 } else {
@@ -128,16 +137,16 @@ impl FromStr for Asset {
             }
 
             index += 1;
-            if '0' <= c && c <= '9' {
+            if b'0' <= c && c <= b'9' {
                 if let Some(p) = precision {
                     precision = Some(p + 1);
                 }
-            } else if c == ' ' {
+            } else if c == b' ' {
                 match precision {
                     Some(0) => return Err(ParseAssetError::BadPrecision),
                     _ => break,
                 }
-            } else if c == '.' {
+            } else if c == b'.' {
                 precision = Some(0);
             } else {
                 return Err(ParseAssetError::BadChar(c));
@@ -146,7 +155,7 @@ impl FromStr for Asset {
 
         let precision = u8::try_from(precision.unwrap_or_default())
             .map_err(|_| ParseAssetError::BadPrecision)?;
-        let symbol = symbol_from_chars(precision, chars)
+        let symbol = symbol_from_bytes(precision, bytes)
             .map_err(ParseAssetError::from)?;
 
         let end_index = if precision == 0 {
@@ -173,34 +182,6 @@ impl FromStr for Asset {
                 symbol: symbol.into(),
             })
         }
-    }
-}
-
-impl TryFrom<&str> for Asset {
-    type Error = ParseAssetError;
-    #[inline]
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_str(value)
-    }
-}
-
-impl TryFrom<String> for Asset {
-    type Error = ParseAssetError;
-    #[inline]
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
-    }
-}
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for Asset {
-    #[inline]
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let s = self.to_string();
-        serializer.serialize_str(s.as_str())
     }
 }
 
@@ -383,7 +364,7 @@ impl_op! {
 
 #[cfg(test)]
 mod asset_tests {
-    use super::*;
+    use super::{Asset, FromStr, ParseAssetError};
     use alloc::string::ToString;
     use eosio_macros::s;
 
@@ -421,7 +402,6 @@ mod asset_tests {
                     symbol: $expected_symbol.into(),
                 });
                 assert_eq!(Asset::from_str($input), ok);
-                assert_eq!(Asset::try_from($input), ok);
             }
         )*)
     }
@@ -448,19 +428,18 @@ mod asset_tests {
             fn $name() {
                 let err = Err($expected);
                 assert_eq!(Asset::from_str($input), err);
-                assert_eq!(Asset::try_from($input), err);
             }
         )*)
     }
 
     test_from_str_err! {
-        from_str_bad_char1, "tst", ParseAssetError::BadChar('t')
-        from_str_multi_spaces, "1.0000  EOS", ParseAssetError::BadChar(' ')
-        from_str_lowercase_symbol, "1.0000 eos", ParseAssetError::BadChar('e')
-        from_str_no_space, "1EOS", ParseAssetError::BadChar('E')
-        from_str_no_symbol1, "1.2345 ", ParseAssetError::SymbolIsEmpty
-        from_str_no_symbol2, "1", ParseAssetError::SymbolIsEmpty
-        from_str_bad_char2, "1.a", ParseAssetError::BadChar('a')
+        from_str_bad_char1, "tst", ParseAssetError::BadChar(b't')
+        from_str_multi_spaces, "1.0000  EOS", ParseAssetError::BadChar(b' ')
+        from_str_lowercase_symbol, "1.0000 eos", ParseAssetError::BadChar(b's')
+        from_str_no_space, "1EOS", ParseAssetError::BadChar(b'E')
+        from_str_no_symbol1, "1.2345 ", ParseAssetError::BadFormat
+        from_str_no_symbol2, "1", ParseAssetError::BadFormat
+        from_str_bad_char2, "1.a", ParseAssetError::BadChar(b'a')
         from_str_bad_precision, "1. EOS", ParseAssetError::BadPrecision
     }
 

@@ -1,3 +1,5 @@
+use crate::{Checksum160, Checksum256};
+
 /// TODO docs
 #[derive(Clone, Copy, Debug)]
 pub enum SecondaryKey {
@@ -7,6 +9,8 @@ pub enum SecondaryKey {
     F64(f64),
     /// TODO docs
     U128(u128),
+    /// TODO docs
+    H256([u128; 2]),
 }
 
 impl From<u64> for SecondaryKey {
@@ -27,6 +31,27 @@ impl From<u128> for SecondaryKey {
     #[must_use]
     fn from(v: u128) -> Self {
         Self::U128(v)
+    }
+}
+
+impl From<[u128; 2]> for SecondaryKey {
+    #[must_use]
+    fn from(b: [u128; 2]) -> Self {
+        Self::H256([b[0], b[1]])
+    }
+}
+
+impl From<Checksum256> for SecondaryKey {
+    #[must_use]
+    fn from(v: Checksum256) -> Self {
+        v.words().into()
+    }
+}
+
+impl From<Checksum160> for SecondaryKey {
+    #[must_use]
+    fn from(v: Checksum160) -> Self {
+        v.words().into()
     }
 }
 

@@ -1,11 +1,11 @@
-use crate::{AccountName, NumBytes, Read, UnsignedInt, Write};
+use crate::{NumBytes, Read, UnsignedInt, Write};
 use alloc::string::String;
 use core::fmt;
 
 macro_rules! key_type {
     ($ident:ident, $bytes:literal) => {
-        /// TODO depreciate, newer signature types cannot be represented as a fixed size structure
-        /// EOSIO Public Key
+        /// TODO depreciate, newer signature types cannot be represented as a
+        /// fixed size structure EOSIO Public Key
         /// <https://github.com/EOSIO/eosio.cdt/blob/4985359a30da1f883418b7133593f835927b8046/libraries/eosiolib/core/eosio/crypto.hpp#L22-L48>
         #[derive(Read, Write, NumBytes, Clone)]
         #[eosio(crate_path = "crate::bytes")]
@@ -19,7 +19,7 @@ macro_rules! key_type {
         impl $ident {
             /// TODO docs.
             #[must_use]
-            pub fn as_bytes(&self) -> &[u8] {
+            pub const fn as_bytes(&self) -> &[u8; $bytes] {
                 &self.data
             }
 
@@ -27,6 +27,12 @@ macro_rules! key_type {
             #[must_use]
             pub const fn to_bytes(&self) -> [u8; $bytes] {
                 self.data
+            }
+
+            /// TODO docs.
+            #[must_use]
+            pub fn as_slice(&self) -> &[u8] {
+                &self.data
             }
         }
 
@@ -43,14 +49,14 @@ macro_rules! key_type {
         impl PartialEq for $ident {
             #[must_use]
             fn eq(&self, other: &Self) -> bool {
-                self.type_ == other.type_ && self.as_bytes() == other.as_bytes()
+                self.type_ == other.type_ && self.as_slice() == other.as_slice()
             }
         }
 
         impl fmt::Debug for $ident {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 fmt::Debug::fmt(&self.type_, f)?;
-                fmt::Debug::fmt(self.as_bytes(), f)
+                fmt::Debug::fmt(self.as_slice(), f)
             }
         }
     };

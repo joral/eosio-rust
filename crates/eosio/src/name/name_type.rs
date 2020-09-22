@@ -15,10 +15,6 @@ macro_rules! name_type {
             crate::bytes::Write,
             crate::bytes::NumBytes,
         )]
-        #[cfg_attr(
-            feature = "serde",
-            derive(serde::Serialize, serde::Deserialize)
-        )]
         #[eosio(crate_path = "crate::bytes")]
         pub struct $ident($crate::name::Name);
 
@@ -41,6 +37,7 @@ macro_rules! name_type {
 
         impl core::ops::Deref for $ident {
             type Target = $crate::name::Name;
+
             #[must_use]
             fn deref(&self) -> &Self::Target {
                 &self.0
@@ -91,18 +88,11 @@ macro_rules! name_type {
 
         impl core::str::FromStr for $ident {
             type Err = $crate::name::ParseNameError;
+
             #[inline]
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 let name = $crate::name::Name::from_str(s)?;
                 Ok(Self(name))
-            }
-        }
-
-        impl core::convert::TryFrom<&str> for $ident {
-            type Error = $crate::name::ParseNameError;
-            #[inline]
-            fn try_from(value: &str) -> Result<Self, Self::Error> {
-                core::str::FromStr::from_str(value)
             }
         }
     };

@@ -1,11 +1,10 @@
 use crate::bytes::{NumBytes, Read, Write};
-use alloc::string::String;
-use core::convert::TryFrom;
-use core::fmt;
-use core::str::FromStr;
+use core::{
+    fmt,
+    str::{self, FromStr},
+};
 use eosio_numstr::{
-    symbol_code, symbol_from_str, symbol_to_string, symbol_to_utf8,
-    ParseSymbolError,
+    symbol_code_from_bytes, symbol_code_to_bytes, ParseSymbolCodeError,
 };
 
 /// Stores the symbol code as a `u64` value
@@ -46,14 +45,18 @@ impl From<SymbolCode> for [u8; 7] {
     #[inline]
     #[must_use]
     fn from(s: SymbolCode) -> Self {
-        symbol_to_utf8(s.0)
+        symbol_code_to_bytes(s.0)
     }
 }
 
 impl fmt::Display for SymbolCode {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", symbol_to_string(self.0 << 8))
+        let bytes = symbol_code_to_bytes(self.0);
+        let value = str::from_utf8(&bytes)
+            .map(str::trim)
+            .map_err(|_| fmt::Error)?;
+        write!(f, "{}", value)
     }
 }
 
@@ -69,7 +72,7 @@ impl SymbolCode {
     #[inline]
     #[must_use]
     pub fn is_valid(&self) -> bool {
-        let chars = symbol_to_utf8(self.0);
+        let chars = symbol_code_to_bytes(self.0);
         for &c in &chars {
             if c == b' ' {
                 continue;
@@ -89,87 +92,39 @@ impl SymbolCode {
     }
 }
 
-impl TryFrom<&str> for SymbolCode {
-    type Error = ParseSymbolError;
-    #[inline]
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let symbol = symbol_from_str(0, value)?;
-        Ok(symbol_code(symbol).into())
-    }
-}
-
-impl TryFrom<String> for SymbolCode {
-    type Error = ParseSymbolError;
-    #[inline]
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_str())
-    }
-}
-
 impl FromStr for SymbolCode {
-    type Err = ParseSymbolError;
+    type Err = ParseSymbolCodeError;
+
     #[inline]
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::try_from(s)
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        symbol_code_from_bytes(value.bytes()).map(Into::into)
     }
 }
 
 #[cfg(test)]
 mod symbol_code_tests {
-    use super::*;
+    use super::{FromStr, ParseSymbolCodeError, SymbolCode};
     use alloc::string::ToString;
-    use eosio_macros::s;
-    use eosio_numstr::symbol_code;
+    use proptest::prelude::*;
 
-    macro_rules! test_to_string {
-        ($($name:ident, $value:expr, $expected:expr)*) => ($(
-            #[test]
-            fn $name() {
-                assert_eq!(
-                    SymbolCode::from(symbol_code($value)).to_string(),
-                    $expected
-                );
+    #[test]
+    fn from_to_string() {
+        proptest!(|(input in "[A-Z]{1,7}")| {
+            let symbol = SymbolCode::from_str(&input).unwrap();
+            let result = symbol.to_string();
+            prop_assert_eq!(result, input);
+        })
+    }
+
+    #[allow(clippy::unnecessary_operation)]
+    #[test]
+    fn from_str_err() {
+        proptest!(|(input in "[A-Z]{1,3}[a-z]{1,3}")| {
+            match SymbolCode::from_str(&input) {
+                Err(ParseSymbolCodeError::BadChar(..)) => (),
+                Err(err) => prop_assert!(false, "`SymbolCode::from_str` failed with the wrong error (expected `BadChar`): {}", err),
+                Ok(..) => prop_assert!(false, "from_str should've failed"),
             }
-        )*)
-    }
-
-    test_to_string! {
-        to_string, s!(4, "EOS"), "EOS"
-        to_string_zero_precision, s!(0, "TGFT"), "TGFT"
-        to_string_nine_precision, s!(9, "SYS"), "SYS"
-    }
-
-    macro_rules! test_from_str_ok {
-        ($($name:ident, $input:expr, $expected:expr)*) => ($(
-            #[test]
-            fn $name() {
-                let ok = Ok(crate::Symbol::from($expected).code());
-                assert_eq!(SymbolCode::from_str($input), ok);
-                assert_eq!(SymbolCode::try_from($input), ok);
-            }
-        )*)
-    }
-
-    test_from_str_ok! {
-        from_str_ok1, "TST", s!(0, "TST")
-        from_str_ok2, "EOS", s!(4, "EOS")
-        from_str_ok3, "TGFT", s!(0, "TGFT")
-    }
-
-    macro_rules! test_from_str_err {
-        ($($name:ident, $input:expr, $expected:expr)*) => ($(
-            #[test]
-            fn $name() {
-            let err = Err($expected);
-            assert_eq!(SymbolCode::from_str($input), err);
-            assert_eq!(SymbolCode::try_from($input), err);
-            }
-        )*)
-    }
-
-    test_from_str_err! {
-        from_str_bad_char,
-        "tst",
-        ParseSymbolError::BadChar('t')
+        });
     }
 }

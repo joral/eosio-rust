@@ -1,6 +1,12 @@
 use eosio::{PermissionLevel, PublicKey, Transaction, Write, WriteError};
 
-/// Checks if a transaction is authorized by a provided set of keys and permissions
+/// Checks if a transaction is authorized by a provided set of keys and
+/// permissions
+///
+/// # Errors
+///
+/// Returns `Err` if there as a problem serializing the public keys or
+/// permission levels.
 #[inline]
 pub fn has_transaction_authority<T, K, L>(
     trx: T,
@@ -16,8 +22,15 @@ where
     has_transaction_authority_bytes(trx, public_keys, permission_levels)
 }
 
-/// Checks if a transaction is authorized by a provided set of keys and permissions
+/// Checks if a transaction is authorized by a provided set of keys and
+/// permissions
+///
+/// # Errors
+///
+/// Returns `Err` if there as a problem serializing the public keys or
+/// permission levels.
 #[inline]
+#[allow(clippy::cast_possible_truncation)]
 pub fn has_transaction_authority_bytes<T, K, L>(
     trx: T,
     public_keys: K,

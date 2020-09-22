@@ -1,6 +1,6 @@
 //! <https://github.com/EOSIO/eosio.cdt/blob/796ff8bee9a0fc864f665a0a4d018e0ff18ac383/libraries/eosiolib/contracts/eosio/producer_schedule.hpp#L54-L69>
 use crate::{AccountName, NumBytes, PublicKey, Read, Write};
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 
 /// Maps producer with its signing key, used for producer schedule
 /// <https://github.com/EOSIO/eosio.cdt/blob/796ff8bee9a0fc864f665a0a4d018e0ff18ac383/libraries/eosiolib/contracts/eosio/producer_schedule.hpp#L15-L45>
@@ -31,7 +31,8 @@ pub struct ProducerSchedule {
 pub struct KeyWeight {
     /// public key used in a weighted threshold multi-sig authority
     pub key: PublicKey,
-    /// weight associated with a signature from the private key associated with the accompanying public key
+    /// weight associated with a signature from the private key associated with
+    /// the accompanying public key
     pub weight: u64,
 }
 
@@ -46,7 +47,8 @@ impl From<PublicKey> for KeyWeight {
 #[derive(Read, Write, NumBytes, Clone, Default, Debug)]
 #[eosio(crate_path = "crate::bytes")]
 pub struct BlockSigningAuthority {
-    /// minimum threshold of accumulated weights from component keys that satisfies this authority
+    /// minimum threshold of accumulated weights from component keys that
+    /// satisfies this authority
     pub threshold: u32,
     /// component keys and their associated weights
     pub keys: Vec<KeyWeight>,

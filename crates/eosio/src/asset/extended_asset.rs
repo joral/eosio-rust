@@ -1,15 +1,15 @@
 use super::Asset;
-use crate::account::AccountName;
-use crate::bytes::{NumBytes, Read, Write};
-use core::fmt;
-use core::ops::Deref;
+use crate::{
+    account::AccountName,
+    bytes::{NumBytes, Read, Write},
+};
+use core::{fmt, ops::Deref};
 
 /// Extended asset which stores the information of the owner of the asset
 /// <https://github.com/EOSIO/eosio.cdt/blob/4985359a30da1f883418b7133593f835927b8046/libraries/eosiolib/core/eosio/asset.hpp#L371-L481>
 #[derive(
     Debug, PartialEq, PartialOrd, Clone, Copy, Default, NumBytes, Read, Write,
 )]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[eosio(crate_path = "crate::bytes")]
 pub struct ExtendedAsset {
     /// The asset
@@ -117,7 +117,7 @@ impl fmt::Display for ExtendedAsset {
 
 #[cfg(test)]
 mod extended_asset_tests {
-    use super::*;
+    use super::{Asset, ExtendedAsset};
     use alloc::string::ToString;
     use eosio_macros::{n, s};
 

@@ -1,13 +1,12 @@
 //! <https://github.com/EOSIO/eosio.cdt/blob/4985359a30da1f883418b7133593f835927b8046/libraries/eosiolib/contracts/eosio/action.hpp#L249-L274>
-use crate::account::AccountName;
-use crate::bytes::{NumBytes, Read, Write};
-use crate::name::ParseNameError;
-use crate::name_type;
-use alloc::string::String;
-use alloc::vec::Vec;
-use core::convert::TryFrom;
-use core::fmt;
-use core::str::FromStr;
+use crate::{
+    account::AccountName,
+    bytes::{NumBytes, Read, Write},
+    name::ParseNameError,
+    name_type,
+};
+use alloc::{string::String, vec, vec::Vec};
+use core::{convert::TryFrom, fmt, str::FromStr};
 
 name_type!(ActionName);
 name_type!(PermissionName);
@@ -15,7 +14,6 @@ name_type!(PermissionName);
 /// This is the packed representation of an action along with meta-data about
 /// the authorization levels.
 #[derive(Clone, Debug, Read, Write, NumBytes, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[eosio(crate_path = "crate::bytes")]
 pub struct Action<T> {
     /// Name of the account the action is intended for
@@ -68,7 +66,6 @@ pub trait ActionFn: Read + Write + NumBytes + Clone {
     PartialOrd,
     Ord,
 )]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[eosio(crate_path = "crate::bytes")]
 pub struct PermissionLevel {
     /// TODO docs
@@ -113,6 +110,7 @@ impl fmt::Display for ParsePermissionLevelError {
 
 impl FromStr for PermissionLevel {
     type Err = ParsePermissionLevelError;
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut parts = s.split('@');
         let actor = parts.next().ok_or(ParsePermissionLevelError::Format)?;
@@ -134,6 +132,7 @@ impl FromStr for PermissionLevel {
 
 impl TryFrom<&str> for PermissionLevel {
     type Error = ParsePermissionLevelError;
+
     #[inline]
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         Self::from_str(value)
@@ -142,6 +141,7 @@ impl TryFrom<&str> for PermissionLevel {
 
 impl TryFrom<String> for PermissionLevel {
     type Error = ParsePermissionLevelError;
+
     #[inline]
     fn try_from(value: String) -> Result<Self, Self::Error> {
         Self::try_from(value.as_str())
@@ -157,12 +157,15 @@ impl fmt::Display for PermissionLevel {
 
 #[cfg(test)]
 mod permission_level_tests {
-    use super::*;
+    use super::{
+        AccountName, FromStr, ParseNameError, ParsePermissionLevelError,
+        PermissionLevel, PermissionName, TryFrom,
+    };
     use alloc::string::ToString;
     use eosio_macros::n;
 
     #[test]
-    fn test_from_str_ok() {
+    fn test_from_bytes_ok() {
         let ok = Ok(PermissionLevel {
             actor: AccountName::new(n!("hello")),
             permission: PermissionName::new(n!("world")),
@@ -184,12 +187,10 @@ mod permission_level_tests {
     #[test]
     fn test_from_str_invalid_actor() {
         for (input, expected) in &[
-            ("", ParseNameError::Empty),
-            (" ", ParseNameError::BadChar(' ')),
-            ("@world", ParseNameError::Empty),
-            ("hello6", ParseNameError::BadChar('6')),
-            ("HELLO", ParseNameError::BadChar('H')),
-            ("hellohellohello", ParseNameError::TooLong),
+            (" ", ParseNameError::BadChar(b' ')),
+            ("hello6", ParseNameError::BadChar(b'6')),
+            ("HELLO", ParseNameError::BadChar(b'H')),
+            ("hellohellohejjj", ParseNameError::TooLong),
         ] {
             assert_eq!(
                 PermissionLevel::from_str(input),
@@ -201,11 +202,10 @@ mod permission_level_tests {
     #[test]
     fn test_from_str_invalid_permission() {
         for (input, expected) in &[
-            ("hello@", ParseNameError::Empty),
-            ("hello@ ", ParseNameError::BadChar(' ')),
-            ("hello@world6", ParseNameError::BadChar('6')),
-            ("hello@WORLD", ParseNameError::BadChar('W')),
-            ("hello@worldworldworld", ParseNameError::TooLong),
+            ("hello@ ", ParseNameError::BadChar(b' ')),
+            ("hello@world6", ParseNameError::BadChar(b'6')),
+            ("hello@WORLD", ParseNameError::BadChar(b'W')),
+            ("hello@worldworldjjjj", ParseNameError::TooLong),
         ] {
             assert_eq!(
                 PermissionLevel::from_str(input),

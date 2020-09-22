@@ -1,15 +1,14 @@
 //! <https://github.com/EOSIO/eosio.cdt/blob/4985359a30da1f883418b7133593f835927b8046/libraries/eosiolib/core/eosio/name.hpp#L28-L269>
 mod name_type;
 
-pub use eosio_numstr::{ParseNameError, NAME_LEN_MAX, NAME_UTF8_CHARS};
-
 use crate::bytes::{NumBytes, Read, Write};
-use alloc::string::{String, ToString};
-use core::convert::TryFrom;
-use core::fmt;
-use core::marker::PhantomData;
-use core::str::FromStr;
-use eosio_numstr::{name_from_str, name_to_string};
+use core::{
+    cmp::PartialEq,
+    fmt,
+    str::{self, FromStr},
+};
+pub use eosio_numstr::ParseNameError;
+use eosio_numstr::{name_from_bytes, name_to_bytes};
 
 /// TODO docs
 /// TODO use `NonZeroU64`
@@ -64,113 +63,43 @@ impl From<Name> for u64 {
 
 impl FromStr for Name {
     type Err = ParseNameError;
+
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let name = name_from_str(s)?;
+        let name = name_from_bytes(s.bytes())?;
         Ok(name.into())
-    }
-}
-
-impl TryFrom<&str> for Name {
-    type Error = ParseNameError;
-    #[inline]
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_str(value)
-    }
-}
-
-impl TryFrom<String> for Name {
-    type Error = ParseNameError;
-    #[inline]
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::from_str(value.as_str())
     }
 }
 
 impl fmt::Display for Name {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = name_to_string(self.0);
-        write!(f, "{}", s)
+        let bytes = name_to_bytes(self.0);
+        let value = str::from_utf8(&bytes)
+            .map(|s| s.trim_end_matches('.'))
+            .map_err(|_| fmt::Error)?;
+        write!(f, "{}", value)
     }
 }
 
-impl From<Name> for String {
-    #[inline]
-    #[must_use]
-    fn from(i: Name) -> Self {
-        i.to_string()
+impl PartialEq<u64> for Name {
+    fn eq(&self, other: &u64) -> bool {
+        &self.0 == other
     }
 }
 
-impl PartialEq<Name> for String {
-    #[inline]
-    #[must_use]
-    fn eq(&self, other: &Name) -> bool {
-        self.as_str() == other.to_string().as_str()
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::{FromStr, Name};
+    use alloc::string::ToString;
+    use proptest::prelude::*;
 
-impl PartialEq<String> for Name {
-    #[inline]
-    #[must_use]
-    fn eq(&self, other: &String) -> bool {
-        self.to_string().as_str() == other.as_str()
-    }
-}
-
-/// TODO docs
-#[cfg(feature = "serde")]
-struct NameVisitor<T: FromStr<Err = ParseNameError> + From<u64> + fmt::Display>(
-    PhantomData<T>,
-);
-
-#[cfg(feature = "serde")]
-impl<'de, T> serde::de::Visitor<'de> for NameVisitor<T>
-where
-    T: FromStr<Err = ParseNameError> + From<u64> + fmt::Display,
-{
-    type Value = T;
-
-    #[inline]
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("an EOSIO name string or number")
-    }
-
-    #[inline]
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: ::serde::de::Error,
-    {
-        value.parse::<T>().map_err(serde::de::Error::custom)
-    }
-
-    #[inline]
-    fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(value.into())
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for Name {
-    #[inline]
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_any(NameVisitor(PhantomData::<Self>))
-    }
-}
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for Name {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(self.to_string().as_str())
+    proptest! {
+        #[test]
+        fn from_str_to_string(input in "[[1-5][a-z]]{0,12}[a-j]{0,1}") {
+            let name = Name::from_str(&input).expect("Failed to parse name from str");
+            let string = name.to_string();
+            prop_assert_eq!(string, input);
+        }
     }
 }

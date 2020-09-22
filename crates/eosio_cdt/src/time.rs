@@ -1,8 +1,10 @@
 use eosio::{BlockTimestamp, TimePoint, TimePointSec};
 
-/// Returns the time in microseconds from 1970 of the current block as a `TimePoint`
+/// Returns the time in microseconds from 1970 of the current block as a
+/// `TimePoint`
 #[must_use]
 #[inline]
+#[allow(clippy::cast_possible_wrap)]
 pub fn current_time_point() -> TimePoint {
     let micros = unsafe { eosio_cdt_sys::current_time() } as i64;
     TimePoint::from_micros(micros)
@@ -19,12 +21,13 @@ pub fn current_time_point_sec() -> TimePointSec {
 #[must_use]
 #[inline]
 pub fn current_block_time() -> BlockTimestamp {
-    current_time_point().as_block_timestamp()
+    current_time_point().into()
 }
 
 /// Gets the publication time
 #[must_use]
 #[inline]
+#[allow(clippy::cast_possible_wrap)]
 pub fn publication() -> TimePoint {
     let micros = unsafe { eosio_cdt_sys::publication_time() } as i64;
     TimePoint::from_micros(micros)

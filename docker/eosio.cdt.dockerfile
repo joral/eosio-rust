@@ -1,8 +1,7 @@
-FROM sagansoftware/eos:2.0.0-rc1
-
+FROM sagansoftware/eos:2.0.3
 # Arguments
 ARG fork=EOSIO
-ARG branch=v1.7.0-rc1
+ARG branch=v1.7.0
 
 # Build
 RUN git clone \

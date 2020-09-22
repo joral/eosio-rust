@@ -6,11 +6,11 @@ use crate::bytes::{NumBytes, Read, ReadError, Write, WriteError};
 /// [Zig-Zag encoding](https://developers.google.com/protocol-buffers/docs/encoding#signed-integers)
 /// <https://github.com/EOSIO/eosio.cdt/blob/4985359a30da1f883418b7133593f835927b8046/libraries/eosiolib/core/eosio/varint.hpp#L239-L465>
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SignedInt(i32);
 
 impl From<isize> for SignedInt {
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
     fn from(v: isize) -> Self {
         Self(v as i32)
     }
@@ -54,6 +54,7 @@ impl From<i8> for SignedInt {
 impl NumBytes for SignedInt {
     #[inline]
     #[must_use]
+    #[allow(clippy::cast_sign_loss)]
     fn num_bytes(&self) -> usize {
         let mut val = ((self.0 << 1) ^ (self.0 >> 31)) as u32;
         let mut bytes = 0_usize;
@@ -70,6 +71,7 @@ impl NumBytes for SignedInt {
 
 impl Read for SignedInt {
     #[inline]
+    #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
     fn read(bytes: &[u8], pos: &mut usize) -> Result<Self, ReadError> {
         let mut v = 0_u32;
         let mut by = 0_u32;
@@ -81,13 +83,14 @@ impl Read for SignedInt {
                 break;
             }
         }
-        let value = (v >> 1) ^ ((!(v & 1) as u64 + 1_u64) as u32);
+        let value = (v >> 1) ^ ((u64::from(!(v & 1)) + 1_u64) as u32);
         Ok(Self(value as i32))
     }
 }
 
 impl Write for SignedInt {
     #[inline]
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn write(
         &self,
         bytes: &mut [u8],

@@ -6,11 +6,11 @@ use crate::bytes::{NumBytes, Read, ReadError, Write, WriteError};
 /// [VLQ or Base-128 encoding](https://en.wikipedia.org/wiki/Variable-length_quantity)
 /// <https://github.com/EOSIO/eosio.cdt/blob/4985359a30da1f883418b7133593f835927b8046/libraries/eosiolib/core/eosio/varint.hpp#L15-L237>
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnsignedInt(u32);
 
 impl From<usize> for UnsignedInt {
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
     fn from(v: usize) -> Self {
         Self(v as u32)
     }
@@ -63,6 +63,7 @@ impl NumBytes for UnsignedInt {
 
 impl Read for UnsignedInt {
     #[inline]
+    #[allow(clippy::cast_possible_truncation)]
     fn read(bytes: &[u8], pos: &mut usize) -> Result<Self, ReadError> {
         let mut v = 0_u64;
         let mut by = 0_u8;
@@ -80,6 +81,7 @@ impl Read for UnsignedInt {
 
 impl Write for UnsignedInt {
     #[inline]
+    #[allow(clippy::cast_possible_truncation)]
     fn write(
         &self,
         bytes: &mut [u8],
